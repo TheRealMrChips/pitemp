@@ -1,0 +1,114 @@
+#!/bin/bash
+#
+# pitemp - A command to display the current temperature of a Raspberry Pi via the onboard SoC (CPU).
+#
+# Written by Richard Larson
+#
+#    Version 1.0 - 2016/06/28 - First Official Release
+#
+# Licensed via the MIT license:  https://github.com/TheRealMrChips/pitemp/blob/master/LICENSE
+# Latest version available here: https://github.com/TheRealMrChips/pitemp
+#
+
+# display help if requested...
+if [[ $1 == '--help' || $1 == '-?' ]]
+then
+  echo -e "\npitemp - A command to display the current temperature of a Raspberry Pi via the onboard SoC (CPU)"
+  echo -e "\nVersion 1.0 - Copyright (c) 2016 Rich Larson"
+  echo -e "Check https://github.com/TheRealMrChips/pitemp for the latest version."
+  echo -e "\nUsage:\n"
+  echo -e "  pitemp [args]\n"
+  echo -e "  -f (--fahrenheit)         : Display temp in Fahrenheit (default is Celcius)."
+  echo -e "  -n (--numeric)            : Display the bare temperature value (no 'F' or 'C' indicator)."
+  echo -e "  -t (--timestamp)          : Prefix each reading with an ISO 8601 timestamp for logging."
+  echo -e "  -u (--utc)                : Display timestamp values in UTC (default is local time)."
+  echo -e "  -w (--watch)              : Watch temperature continuously until Ctrl-C (break) is pressed."
+  echo -e "  -i (--interval) {seconds} : The # of seconds to delay between --watch reading (default is 1).\n"
+  exit 1
+fi
+
+# set up our variables...
+FAHRENHEIT=0
+WATCH=0
+NUMERIC=0
+TIMESTAMP=0
+UTC=""
+OUTPUTTYPE="C"
+DEGREESYMBOL=$'\xc2\xb0'
+NUMERICREGEXTEST='^[0-9]+$'
+WATCHINTERVAL=1
+
+# parse command arguments...
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -f|--fahrenheit)
+      FAHRENHEIT=1
+      OUTPUTTYPE="F"
+      ;;
+    -w|--watch)
+      WATCH=1
+      ;;
+    -n|--numeric)
+      NUMERIC=1
+      ;;
+    -t|--timestamp)
+      TIMESTAMP=1
+      ;;
+    -u|--utc)
+      UTC="--utc"
+      ;;
+    -i|--interval)
+      shift
+      if [[ $1 =~ $NUMERICREGEXTEST ]]
+      then
+        WATCHINTERVAL=$1
+      else
+        echo "pitemp: Error Setting --interval: The supplied argument value was not an integer." >&2; exit 1
+      fi
+      ;;
+  esac
+  shift
+done
+
+# define a function that displays the current temperature using the requested formatting...
+function displaytemp {
+  OUTPUTTEMP="$(/opt/vc/bin/vcgencmd measure_temp | cut -d'=' -f2 | cut -d"." -f1)"
+  TEMPF="$(expr 9 '*' $OUTPUTTEMP / 5 + 32)"
+
+  # if user requested fahrenheit, set output to that value...
+  if [[ $FAHRENHEIT -eq 1 ]]
+  then
+    OUTPUTTEMP=$TEMPF
+  fi
+
+  # if user requested a timestamp, display it...
+  if [[ $TIMESTAMP -eq 1 ]]
+  then
+    echo -en "$(date $UTC +%FT%T%Z) "
+  fi
+
+  # output the current value...
+  echo -n $OUTPUTTEMP
+
+  # if the user did not request "numeric output only", include the "F" or "C" indicator...
+  if [[ $NUMERIC -eq 0 ]]
+  then
+    echo $DEGREESYMBOL$OUTPUTTYPE
+  else
+    echo ""
+  fi
+}
+
+
+# display current temperature once...
+displaytemp
+
+# if the user indicated they want to watch the temperature indefinately, loop forever...
+if [[ $WATCH -eq 1 ]]
+then
+  while [ 1 ]
+  do
+    sleep $WATCHINTERVAL
+    displaytemp
+  done
+fi
