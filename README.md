@@ -1,5 +1,6 @@
 # pitemp
 pitemp - A script that displays the current temperature of a Raspberry Pi system from the onboard SoC.
+---
 
 Pitemp is a simple BASH shell script that allows easy access the current temperature of the SoC (CPU) in a Raspberry Pi computer.  It was written with the following concepts in mind:
 
